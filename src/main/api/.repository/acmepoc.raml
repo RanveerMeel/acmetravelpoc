@@ -1,0 +1,158 @@
+#%RAML 1.0
+version: v1
+baseUri: https://mocksvc.mulesoft.com/mocks/46051c9f-5c8b-4de7-938e-4b32134c9ea8 # 
+title: AcmePOC
+
+/getFlights:
+  description: get list of flights as per given date
+  displayName: get flights 
+  get:
+    queryParameters: 
+      date:
+        type: datetime-only
+        default: 2017-03-15T20:30:00
+        example: 2017-03-15T20:30:00
+        required: true
+        displayName: Departure date
+    responses: 
+      200:
+        description: List of flights avaiable on given date
+        body: 
+          application/json:
+            description: Flight list
+            example: |
+              {
+                "flights" : [
+                  {
+                    "flight code" : "BA001",
+                    "airline name" : "British Airways",
+                    "Departure" : "London",
+                    "Destination" : "Cincinnati",
+                    "Departure Date" : "2017-03-15T20:30:00",
+                    "aircraft type" : "Airbus A318",
+                    "seat availability" : "32",
+                    "price" : "1400.00"
+                  },
+                  {
+                    "flight code" : "BA105",
+                    "airline name" : "British Airways",
+                    "Departure" : "Cincinnati",
+                    "Destination" : "London",
+                    "Departure Date" : "2017-03-15T06:30:00",
+                    "aircraft type" : "Boeing 747-400",
+                    "seat availability" : "463",
+                    "price" : "452.18"
+                  }	   
+                ]
+              }
+/getDestination:
+  description: get destination list as per given airlines name
+  displayName: get destination list
+  get:
+    queryParameters: 
+      airlineName:
+        displayName: Airlne name
+        type: string
+        example: British Airways
+        default: British Airways
+        required: true
+        minLength: 10
+        maxLength: 150
+    responses: 
+      200:
+        description: List of destination as per given airline
+        body: 
+          application/json:
+            example: |
+              {
+                "Destinations" : [
+                  {
+                    "county" : "UK",
+                    "city"   : "London",
+                    "airport name" : "Heathrow"
+                  },
+                  {
+                    "county" : "US",
+                    "city"   : "Cincinnati",
+                    "airport name" : "Cincinnati Municipal Lunken Airport"
+                  }
+                ]
+              }
+/ticketPurchase:
+  description: api for purchase airline tcket
+  displayName: purchase ticket
+  post:
+    description: Input payload for purchase ticket
+    body: 
+      application/json:
+        example: |
+          {
+            "flight code" : "BA001",
+            "number of seat" : "1"
+          }
+    responses: 
+      200:
+        description: message of success purchase
+        body: 
+          application/json:
+            example: |
+              {
+                "flight code" : "BA001",
+                "airline name" : "British Airways",
+                "Departure" : "Cincinnati",
+                "Destination" : "London",
+                "Departure Date" : "2017-03-15T20:30:00",
+                "aircraft type" : "Airbus A318",
+                "Number of seat purchase" : "1",
+                "Total price" : "1400.00"
+              }
+/changePrice:
+  description: Api for increase or decrease flight price
+  displayName: price change
+  post:
+    description: Input payload for price change
+    body: 
+      application/json:
+        example: |
+          {
+            "flight code" : "BA001",
+            "Type" : "INCREMENT",
+            "price" : "400.00"
+          }
+    responses: 
+      200:
+        description: success message of change
+        body: 
+          application/json:
+            example: |
+             {
+               "flight code" : "BA001",
+               "old price" : "1400.00",
+               "new price" : "1800.00"
+             }
+/addFlight:
+  description: add flight as per given route.
+  displayName: add flight
+  post:
+    body: 
+      application/json:
+        example: |
+          {
+            "flight code" : "BA101",
+            "departure date" : "Datetime",
+            "departure airport" : "ABC",
+            "destination airport" : "AGV",
+            "aircraft type" : "Airbus A318",
+            "Total seat" : 456,
+            "price" : 1800  
+          }
+    responses: 
+      200:
+        description: success message of add flight
+        body: 
+          application/json:
+            example: |
+              {
+                "status" : "success",
+                "message" : "successfully inserted 1 record" 
+              }

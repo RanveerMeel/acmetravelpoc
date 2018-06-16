@@ -1,0 +1,24 @@
+{
+  "flights" : [
+    {
+      "flight code" : "BA001",
+      "airline name" : "British Airways",
+      "Departure" : "London",
+      "Destination" : "Cincinnati",
+      "Departure Date" : "2017-03-15T20:30:00",
+      "aircraft type" : "Airbus A318",
+      "seat availability" : "32",
+      "price" : "1400.00"
+    },
+    {
+      "flight code" : "BA105",
+      "airline name" : "British Airways",
+      "Departure" : "Cincinnati",
+      "Destination" : "London",
+      "Departure Date" : "2017-03-15T06:30:00",
+      "aircraft type" : "Boeing 747-400",
+      "seat availability" : "463",
+      "price" : "452.18"
+    }	   
+  ]
+}

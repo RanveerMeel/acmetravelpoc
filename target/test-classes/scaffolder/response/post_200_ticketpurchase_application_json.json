@@ -1,0 +1,10 @@
+{
+  "flight code" : "BA001",
+  "airline name" : "British Airways",
+  "Departure" : "Cincinnati",
+  "Destination" : "London",
+  "Departure Date" : "2017-03-15T20:30:00",
+  "aircraft type" : "Airbus A318",
+  "Number of seat purchase" : "1",
+  "Total price" : "1400.00"
+}

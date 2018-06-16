@@ -1,0 +1,211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:context="http://www.springframework.org/schema/context" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:apikit="http://www.mulesoft.org/schema/mule/apikit" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/apikit http://www.mulesoft.org/schema/mule/apikit/current/mule-apikit.xsd
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd
+http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-current.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd">
+    <http:listener-config name="acmepoc-httpListenerConfig" host="0.0.0.0" port="8081" doc:name="HTTP Listener Configuration"/>
+    <apikit:config name="acmepoc-config" raml="acmepoc.raml" consoleEnabled="false" doc:name="Router"/>
+    <context:property-placeholder location="acmetravelpoc-${ENV}.properties"/>
+    <db:mysql-config name="MySQL_Configuration" host="${db.hostname}" port="3306" user="${db.username}" password="${db.password}" database="${db.schema}" doc:name="MySQL Configuration"/>
+    <flow name="acmepoc-main">
+        <http:listener config-ref="acmepoc-httpListenerConfig" path="/api/*" doc:name="HTTP"/>
+        <apikit:router config-ref="acmepoc-config" doc:name="APIkit Router"/>
+        <exception-strategy ref="acmepoc-apiKitGlobalExceptionMapping" doc:name="Reference Exception Strategy"/>
+    </flow>
+    <flow name="acmepoc-console">
+        <http:listener config-ref="acmepoc-httpListenerConfig" path="/console/*" doc:name="HTTP"/>
+        <apikit:console config-ref="acmepoc-config" doc:name="APIkit Console"/>
+    </flow>
+    <flow name="get:/getDestination:acmepoc-config">
+        <logger message="Input Airline Name :- #[message.inboundProperties.'http.query.params'.airlineName]" level="INFO" doc:name="Logger"/>
+        <db:select config-ref="MySQL_Configuration" streaming="true" doc:name="Database">
+            <db:parameterized-query><![CDATA[select distinct a.name,a.city,a.country
+from airlines_sandbox.airports a,airlines_sandbox.routes r
+where a.IATA = r.Destination_Airport
+and r.Airline_ID in (SELECT distinct l.Airline_ID FROM airlines_sandbox.airlines l
+                                where l.Name = #[message.inboundProperties.'http.query.params'.airlineName] );]]></db:parameterized-query>
+        </db:select>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+	Destination : payload
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="get:/getFlights:acmepoc-config">
+        <logger message="Input date :- #[message.inboundProperties.'http.query.params'.date]" level="INFO" doc:name="Logger"/>
+        <db:select config-ref="MySQL_Configuration" streaming="true" doc:name="Database">
+            <db:parameterized-query><![CDATA[SELECT f.* 
+FROM airlines_sandbox.flights_ranmeel f,airlines_sandbox.airports a
+where f.Departure_Airport = a.IATA
+and a.Timezone =  10
+and f.Departure_Date = '2017-03-15 08:45:00';]]></db:parameterized-query>
+        </db:select>
+        <dw:transform-message doc:name="Transform Message" metadata:id="64f00b8a-ffb8-493d-bc6e-50ccccd35d6d">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	flights: payload map ((payload01 , indexOfPayload01) -> {
+		"flight code": payload01.Flight_Code,
+		"airline name": payload01.Airline_Name,
+		Departure: payload01.Departure_Airport,
+		Destination: payload01.Destination_Airport,
+		"Departure Date": payload01.Departure_Date as :string,
+		"aircraft type": payload01.Aircraft_Type,
+		"seat availability": payload01.Seat_Availability as :string,
+		price: payload01.Price as :string
+	})
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="post:/addFlight:acmepoc-config">
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <db:insert config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[insert into airlines_sandbox.flights_ranmeel
+select #[payload.flightCode],al.Name,r.Source_Airport,r.Destination_Airport,#[payload.departureDate],#[payload.aircraftType],#[payload.totalSeat],#[payload.price]
+from airlines_sandbox.airlines al,airlines_sandbox.routes r
+where al.Airline_ID = r.Airline_ID
+and r.Source_Airport = #[payload.departureAirport]
+and r.Destination_Airport = #[payload.destinationAirport];]]></db:parameterized-query>
+        </db:insert>
+        <logger message="Add Flight Database output :- #[payload]" level="INFO" doc:name="Logger"/>
+        <choice doc:name="Choice">
+            <when expression="#[payload == 1]">
+                <set-payload value="{
+                &quot;status&quot; : &quot;success&quot;,
+                &quot;message&quot; : &quot;successfully inserted 1 record&quot; 
+ }" doc:name="Set Payload"/>
+            </when>
+            <otherwise>
+                <set-payload value="{
+                &quot;status&quot; : &quot;Failure&quot;,
+                &quot;message&quot; : &quot;Some technical issue in flight add&quot; 
+              }" doc:name="Set Payload"/>
+            </otherwise>
+        </choice>
+    </flow>
+    <flow name="post:/changePrice:acmepoc-config">
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="oldPrice" value="" doc:name="set variavle oldPrice"/>
+        <db:select config-ref="MySQL_Configuration" target="#[flowVars.oldPrice]" doc:name="Database">
+            <db:parameterized-query><![CDATA[select f.Flight_Code,f.price from airlines_sandbox.flights_ranmeel f
+where f.Flight_Code = #[payload.flightCode]]]></db:parameterized-query>
+        </db:select>
+        <logger message="Input Payload :- #[payload]" level="INFO" doc:name="Logger"/>
+        <choice doc:name="Choice">
+            <when expression="#[payload.type == &quot;REPLACE&quot;]">
+                <db:update config-ref="MySQL_Configuration" doc:name="Database">
+                    <db:parameterized-query><![CDATA[update airlines_sandbox.flights_ranmeel f
+set f.price = #[payload.price]
+where f.Flight_Code = #[payload.flightCode]]]></db:parameterized-query>
+                </db:update>
+                <logger message="In replace flow" level="INFO" doc:name="Logger"/>
+            </when>
+            <when expression="#[payload.type == &quot;INCREMENT&quot;]">
+                <db:update config-ref="MySQL_Configuration" doc:name="Database">
+                    <db:parameterized-query><![CDATA[update airlines_sandbox.flights_ranmeel f
+set f.price = f.price + #[payload.price]
+where f.Flight_Code = #[payload.flightCode]]]></db:parameterized-query>
+                </db:update>
+                <logger message="In increment flow" level="INFO" doc:name="Logger"/>
+            </when>
+            <when expression="#[payload.type == &quot;DECREMENT&quot;]">
+                <db:update config-ref="MySQL_Configuration" doc:name="Database">
+                    <db:parameterized-query><![CDATA[update airlines_sandbox.flights_ranmeel f
+set f.price = f.price - #[payload.price]
+where f.Flight_Code = #[payload.flightCode]]]></db:parameterized-query>
+                </db:update>
+                <logger message="In decrement flow" level="INFO" doc:name="Logger"/>
+            </when>
+            <otherwise>
+                <logger message="Invalid input type" level="INFO" doc:name="Logger"/>
+            </otherwise>
+        </choice>
+        <db:select config-ref="MySQL_Configuration" doc:name="Database">
+            <db:parameterized-query><![CDATA[select f.Flight_Code,f.price from airlines_sandbox.flights_ranmeel f
+where f.Flight_Code = #[flowVars.oldPrice[0].Flight_Code]]]></db:parameterized-query>
+        </db:select>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/json
+---
+{
+	flightCode: payload[0].Flight_Code,
+	oldPrice : flowVars.oldPrice[0].price,
+	newPrice : payload[0].price
+}]]></dw:set-payload>
+        </dw:transform-message>
+    </flow>
+    <flow name="post:/ticketPurchase:acmepoc-config">
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-payload>
+        </dw:transform-message>
+        <set-variable variableName="NoOfUpdate" value="" doc:name="Variable NoOfUpdate"/>
+        <db:update config-ref="MySQL_Configuration" target="#[flowVars.NoOfUpdate]" doc:name="Database">
+            <db:parameterized-query><![CDATA[update airlines_sandbox.flights_ranmeel f
+set f.Seat_Availability  = f.Seat_Availability - #[payload.numberOfSeat]
+where f.Flight_Code = #[payload.flightCode]
+and f.Seat_Availability > 1]]></db:parameterized-query>
+        </db:update>
+        <choice doc:name="Choice">
+            <when expression="#[flowVars.NoOfUpdate == 1]">
+                <db:select config-ref="MySQL_Configuration" doc:name="Database">
+                    <db:parameterized-query><![CDATA[SELECT * FROM airlines_sandbox.flights_ranmeel
+where Flight_Code = #[payload.flightCode]]]></db:parameterized-query>
+                </db:select>
+            </when>
+            <otherwise>
+                <set-payload value="{
+	&quot;message&quot; : &quot;Seat not available&quot;
+}" doc:name="Set Payload"/>
+            </otherwise>
+        </choice>
+    </flow>
+    <apikit:mapping-exception-strategy name="acmepoc-apiKitGlobalExceptionMapping">
+        <apikit:mapping statusCode="404">
+            <apikit:exception value="org.mule.module.apikit.exception.NotFoundException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Resource not found&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="405">
+            <apikit:exception value="org.mule.module.apikit.exception.MethodNotAllowedException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Method not allowed&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="415">
+            <apikit:exception value="org.mule.module.apikit.exception.UnsupportedMediaTypeException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Unsupported media type&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="406">
+            <apikit:exception value="org.mule.module.apikit.exception.NotAcceptableException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Not acceptable&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+        <apikit:mapping statusCode="400">
+            <apikit:exception value="org.mule.module.apikit.exception.BadRequestException" />
+            <set-property propertyName="Content-Type" value="application/json" doc:name="Property"/>
+            <set-payload value="{ &quot;message&quot;: &quot;Bad request&quot; }" doc:name="Set Payload"/>
+        </apikit:mapping>
+    </apikit:mapping-exception-strategy>
+</mule>

@@ -1,0 +1,14 @@
+{
+  "Destinations" : [
+    {
+      "county" : "UK",
+      "city"   : "London",
+      "airport name" : "Heathrow"
+    },
+    {
+      "county" : "US",
+      "city"   : "Cincinnati",
+      "airport name" : "Cincinnati Municipal Lunken Airport"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "flight code" : "BA101",
+  "departure date" : "Datetime",
+  "departure airport" : "ABC",
+  "destination airport" : "AGV",
+  "aircraft type" : "Airbus A318",
+  "Total seat" : 456,
+  "price" : 1800  
+}
